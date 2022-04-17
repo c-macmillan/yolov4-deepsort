@@ -2,6 +2,7 @@ import os
 # comment out below line to enable tensorflow logging outputs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import time
+import math
 import tensorflow as tf
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 if len(physical_devices) > 0:
@@ -23,6 +24,8 @@ from deep_sort import preprocessing, nn_matching
 from deep_sort.detection import Detection
 from deep_sort.tracker import Tracker
 from tools import generate_detections as gdet
+from _collections import deque
+
 flags.DEFINE_string('framework', 'tf', '(tf, tflite, trt')
 flags.DEFINE_string('weights', './checkpoints/yolov4-416',
                     'path to weights file')
@@ -89,6 +92,13 @@ def main(_argv):
         fps = int(vid.get(cv2.CAP_PROP_FPS))
         codec = cv2.VideoWriter_fourcc(*FLAGS.output_format)
         out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
+
+    # Set up historical tracking of objects & speed averaging
+    UnitsPerMeter = 18.0
+    FramesToAverage = fps
+    pts = [deque(maxlen=30) for _ in range(500)]
+    frameNumWhenUpdated = [deque(maxlen=FramesToAverage) for _ in range(500)]
+
 
     frame_num = 0
     # while video is running
@@ -157,10 +167,10 @@ def main(_argv):
         class_names = utils.read_class_names(cfg.YOLO.CLASSES)
 
         # by default allow all classes in .names file
-        allowed_classes = list(class_names.values())
+        #allowed_classes = list(class_names.values())
         
         # custom allowed classes (uncomment line below to customize tracker for only people)
-        #allowed_classes = ['person']
+        allowed_classes = ['person', 'car', 'truck', 'motorbike', 'bus', 'bicycle']
 
         # loop through objects and use class index to get class name, allow only classes in allowed_classes list
         names = []
@@ -218,9 +228,32 @@ def main(_argv):
             if FLAGS.info:
                 print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
 
+        # Draw the historical trajectory per object
+            center = (int( (bbox[0] + bbox[2]) / 2), int((bbox[1] + bbox[3]) /2))
+            pts[track.track_id].append(center)
+            frameNumWhenUpdated[track.track_id].append(frame_num)
+            for j in range(1, len(pts[track.track_id])):
+                if pts[track.track_id][j-1] is None or pts[track.track_id][j] is None:
+                    continue
+                thickness = int(np.sqrt(64.0/(j+1)) * 2) 
+                cv2.line(frame, (pts[track.track_id][j-1]), pts[track.track_id][j], color, thickness)
+            
+            if len(pts[track.track_id]) > FramesToAverage:
+                distance = math.dist(pts[track.track_id][-FramesToAverage], pts[track.track_id][-1])
+                speed = 2.23694 * distance / UnitsPerMeter # / ((frameNumWhenUpdated[track.track_id][-1] - frameNumWhenUpdated[track.track_id][-FramesToAverage]) / fps) 
+                cv2.putText(frame, "MPH: {:.0f}".format(speed),(int(bbox[0]), int(bbox[3]-10)),0, 0.75, (255,255,255),2)
+
+        scaleX = int(5 *width / 9) + 80
+        scaleY = int(8 * height / 9)
+        cv2.line(frame,(scaleX, scaleY), (int(scaleX+UnitsPerMeter*20), int(scaleY)), (255,0,0), 2)
+        
         # calculate frames per second of running detections
-        fps = 1.0 / (time.time() - start_time)
-        print("FPS: %.2f" % fps)
+        FPS = 1.0 / (time.time() - start_time)
+        print("FPS: %.2f" % FPS)
+        # output the FPS to the video
+        cv2.putText(frame, "FPS: {:.2f}".format(FPS), (15,35), cv2.FONT_HERSHEY_COMPLEX,  1, (255,0,0), 2)
+
+        # turn frame into image result
         result = np.asarray(frame)
         result = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         
