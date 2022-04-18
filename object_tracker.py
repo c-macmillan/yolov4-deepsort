@@ -237,14 +237,15 @@ def main(_argv):
                 thickness = int(np.sqrt(64.0/(j+1)) * 2) 
                 cv2.line(frame, (pts[track.track_id][j-1]), pts[track.track_id][j], color, thickness)
             
+            # Calculate and output the estimated speed of the object
             if len(pts[track.track_id]) > FramesToAverage:
                 distance = dist(pts[track.track_id][-FramesToAverage], pts[track.track_id][-1])
-                speed = 2.23694 * distance / UnitsPerMeter # / ((frameNumWhenUpdated[track.track_id][-1] - frameNumWhenUpdated[track.track_id][-FramesToAverage]) / fps) 
+                speed = 2.23694 * distance / UnitsPerMeter # averages speed over one second of video time (FramesToAverage set to fps) 
                 cv2.putText(frame, "MPH: {:.0f}".format(speed),(int(bbox[0]), int(bbox[3]-10)),0, 0.75, (255,255,255),2)
 
-        scaleX = int(5 *width / 9) + 80
-        scaleY = int(8 * height / 9)
-        cv2.line(frame,(scaleX, scaleY), (int(scaleX+UnitsPerMeter*20), int(scaleY)), (255,0,0), 2)
+        # scaleX = int(5 *width / 9) + 80
+        # scaleY = int(8 * height / 9)
+        # cv2.line(frame,(scaleX, scaleY), (int(scaleX+UnitsPerMeter*20), int(scaleY)), (255,0,0), 2)
         
         # calculate frames per second of running detections
         FPS = 1.0 / (time.time() - start_time)
