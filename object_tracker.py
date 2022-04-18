@@ -99,7 +99,6 @@ def main(_argv):
     pts = [deque(maxlen=30) for _ in range(500)]
     frameNumWhenUpdated = [deque(maxlen=FramesToAverage) for _ in range(500)]
 
-
     frame_num = 0
     # while video is running
     while True:
