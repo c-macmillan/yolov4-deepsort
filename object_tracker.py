@@ -48,7 +48,7 @@ def main(_argv):
     nms_max_overlap = 1.0
     
     # initialize deep sort
-    model_filename = 'model_data/mars-small128.pb'
+    model_filename = './yolov4-deepsort/model_data/mars-small128.pb'
     encoder = gdet.create_box_encoder(model_filename, batch_size=1)
     # calculate cosine distance metric
     metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
@@ -238,7 +238,7 @@ def main(_argv):
                 cv2.line(frame, (pts[track.track_id][j-1]), pts[track.track_id][j], color, thickness)
             
             if len(pts[track.track_id]) > FramesToAverage:
-                distance = math.dist(pts[track.track_id][-FramesToAverage], pts[track.track_id][-1])
+                distance = dist(pts[track.track_id][-FramesToAverage], pts[track.track_id][-1])
                 speed = 2.23694 * distance / UnitsPerMeter # / ((frameNumWhenUpdated[track.track_id][-1] - frameNumWhenUpdated[track.track_id][-FramesToAverage]) / fps) 
                 cv2.putText(frame, "MPH: {:.0f}".format(speed),(int(bbox[0]), int(bbox[3]-10)),0, 0.75, (255,255,255),2)
 
@@ -264,6 +264,9 @@ def main(_argv):
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
     cv2.destroyAllWindows()
+
+def dist(pt1, pt2):
+  return math.sqrt((pt1[0] - pt2[0]) **2 + (pt1[1] - pt2[1]) ** 2)
 
 if __name__ == '__main__':
     try:
