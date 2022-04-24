@@ -115,7 +115,7 @@ def main(_argv):
             print('Video has ended or failed, try a different video format!')
             break
         frame_num +=1
-        print('Frame #: ', frame_num)
+        # print('Frame #: ', frame_num)
         frame_size = frame.shape[:2]
         image_data = cv2.resize(frame, (input_size, input_size))
         image_data = image_data / 255.
@@ -230,8 +230,8 @@ def main(_argv):
 
         # if enable info flag then print details about each track
             if FLAGS.info:
-                print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
-                trackingData.append([frame_num, track.track_id, bbox[0], bbox[1], (bbox[1] - bbox[0]), (bbox[1] -bbox[3]), class_name, -1, -1, -1])
+                # print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
+                trackingData.append([frame_num, track.track_id, bbox[0], bbox[1], (bbox[1] - bbox[0]), (bbox[1] -bbox[3]), 1, -1, -1, -1])
         # Draw the historical trajectory per object
             center = (int( (bbox[0] + bbox[2]) / 2), int(bbox[3]))
             pts[track.track_id].append(center)
@@ -255,6 +255,7 @@ def main(_argv):
         
         # calculate frames per second of running detections
         FPS = 1.0 / (time.time() - start_time)
+        FPSes.append(FPS)
         # output the FPS to the video
         cv2.putText(frame, "FPS: {:.2f}".format(FPS), (15,35), cv2.FONT_HERSHEY_COMPLEX,  1, (255,0,0), 2)
 
@@ -265,16 +266,16 @@ def main(_argv):
         if not FLAGS.dont_show:
             cv2.imshow("Output Video", result)
         
-        if FLAGS.info:
-          np.savetxt(FLAGS.tracking_data_output, 
-           trackingData,
-           delimiter =", ", 
-           fmt ='% s')
-        
         # if output flag is set, save video file
         if FLAGS.output:
             out.write(result)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
+    if FLAGS.info:
+        np.savetxt(FLAGS.tracking_data_output, 
+        trackingData,
+        delimiter =", ", 
+        fmt ='% s')
+        print("Average FPS: " + str(np.mean(FPSes)))
     cv2.destroyAllWindows()
 
 def dist(pt1, pt2):
