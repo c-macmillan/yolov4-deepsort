@@ -231,7 +231,8 @@ def main(_argv):
         # if enable info flag then print details about each track
             if FLAGS.info:
                 # print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
-                trackingData.append([frame_num, track.track_id, bbox[0], bbox[1], (bbox[1] - bbox[0]), (bbox[1] -bbox[3]), 1, -1, -1, -1])
+                trackingData.append([frame_num, track.track_id, bbox[0], bbox[3], (bbox[2] - bbox[0]), (bbox[3] -bbox[1]), 1, -1, -1, -1])
+
         # Draw the historical trajectory per object
             center = (int( (bbox[0] + bbox[2]) / 2), int(bbox[3]))
             pts[track.track_id].append(center)
