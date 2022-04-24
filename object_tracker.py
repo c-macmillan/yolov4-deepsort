@@ -40,6 +40,8 @@ flags.DEFINE_float('score', 0.50, 'score threshold')
 flags.DEFINE_boolean('dont_show', False, 'dont show video output')
 flags.DEFINE_boolean('info', False, 'show detailed info of tracked objects')
 flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
+flags.DEFINE_boolean('calc_speed', False, 'calcualte the speed of tracked objects')
+flags.DEFINE_string('tracking_data_output', '/content/drive/MyDrive/YOLOv4/outputs/trackingData.csv', 'Put the tracking data into this folder, requires --info agrgument' )
 
 def main(_argv):
     # Definition of the parameters
@@ -96,8 +98,11 @@ def main(_argv):
     # Set up historical tracking of objects & speed averaging
     UnitsPerMeter = 18.0
     FramesToAverage = fps
-    pts = [deque(maxlen=30) for _ in range(500)]
-    frameNumWhenUpdated = [deque(maxlen=FramesToAverage) for _ in range(500)]
+    pts = [deque(maxlen=60) for _ in range(1000)]
+    frameNumWhenUpdated = [deque(maxlen=FramesToAverage) for _ in range(1000)]
+
+    FPSes = []
+    trackingData = []
 
     frame_num = 0
     # while video is running
@@ -226,9 +231,9 @@ def main(_argv):
         # if enable info flag then print details about each track
             if FLAGS.info:
                 print("Tracker ID: {}, Class: {},  BBox Coords (xmin, ymin, xmax, ymax): {}".format(str(track.track_id), class_name, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
-
+                trackingData.append([frame_num, track.track_id, bbox[0], bbox[1], (bbox[1] - bbox[0]), (bbox[1] -bbox[3]), class_name, -1, -1, -1])
         # Draw the historical trajectory per object
-            center = (int( (bbox[0] + bbox[2]) / 2), int((bbox[1] + bbox[3]) /2))
+            center = (int( (bbox[0] + bbox[2]) / 2), int(bbox[3]))
             pts[track.track_id].append(center)
             frameNumWhenUpdated[track.track_id].append(frame_num)
             for j in range(1, len(pts[track.track_id])):
@@ -238,10 +243,11 @@ def main(_argv):
                 cv2.line(frame, (pts[track.track_id][j-1]), pts[track.track_id][j], color, thickness)
             
             # Calculate and output the estimated speed of the object
-            if len(pts[track.track_id]) > FramesToAverage:
-                distance = dist(pts[track.track_id][-FramesToAverage], pts[track.track_id][-1])
-                speed = 2.23694 * distance / UnitsPerMeter # averages speed over one second of video time (FramesToAverage set to fps) 
-                cv2.putText(frame, "MPH: {:.0f}".format(speed),(int(bbox[0]), int(bbox[3]-10)),0, 0.75, (255,255,255),2)
+            if FLAGS.calc_speed:
+                if len(pts[track.track_id]) > FramesToAverage:
+                  distance = dist(pts[track.track_id][-FramesToAverage], pts[track.track_id][-1])
+                  speed = 2.23694 * distance / UnitsPerMeter # averages speed over one second of video time (FramesToAverage set to fps) 
+                  cv2.putText(frame, "MPH: {:.0f}".format(speed),(int(bbox[0]), int(bbox[3]-10)),0, 0.75, (255,255,255),2)
 
         # scaleX = int(5 *width / 9) + 80
         # scaleY = int(8 * height / 9)
@@ -249,7 +255,6 @@ def main(_argv):
         
         # calculate frames per second of running detections
         FPS = 1.0 / (time.time() - start_time)
-        print("FPS: %.2f" % FPS)
         # output the FPS to the video
         cv2.putText(frame, "FPS: {:.2f}".format(FPS), (15,35), cv2.FONT_HERSHEY_COMPLEX,  1, (255,0,0), 2)
 
@@ -259,6 +264,12 @@ def main(_argv):
         
         if not FLAGS.dont_show:
             cv2.imshow("Output Video", result)
+        
+        if FLAGS.info:
+          np.savetxt(FLAGS.tracking_data_output, 
+           trackingData,
+           delimiter =", ", 
+           fmt ='% s')
         
         # if output flag is set, save video file
         if FLAGS.output:
