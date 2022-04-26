@@ -42,6 +42,7 @@ flags.DEFINE_boolean('info', False, 'show detailed info of tracked objects')
 flags.DEFINE_boolean('count', False, 'count objects being tracked on screen')
 flags.DEFINE_boolean('calc_speed', False, 'calcualte the speed of tracked objects')
 flags.DEFINE_string('tracking_data_output', '/content/drive/MyDrive/YOLOv4/outputs/trackingData.csv', 'Put the tracking data into this folder, requires --info agrgument' )
+flags.DEFINE_string('performance_data_output', '/content/drive/MyDrive/YOLOv4/outputs/performanceData.csv', 'Log performance for each frame.')
 
 def main(_argv):
     # Definition of the parameters
@@ -96,17 +97,19 @@ def main(_argv):
         out = cv2.VideoWriter(FLAGS.output, codec, fps, (width, height))
 
     # Set up historical tracking of objects & speed averaging
-    UnitsPerMeter = 18.0
+    UnitsPerMeter = 18
     FramesToAverage = fps
     pts = [deque(maxlen=60) for _ in range(1000)]
     frameNumWhenUpdated = [deque(maxlen=FramesToAverage) for _ in range(1000)]
 
     FPSes = []
     trackingData = []
+    performanceData = []
 
     frame_num = 0
     # while video is running
     while True:
+        numObjectsInFrame = 0
         return_value, frame = vid.read()
         if return_value:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -220,6 +223,7 @@ def main(_argv):
                 continue 
             bbox = track.to_tlbr()
             class_name = track.get_class()
+            numObjectsInFrame += 1
             
         # draw bbox on screen
             color = colors[int(track.track_id) % len(colors)]
@@ -250,13 +254,14 @@ def main(_argv):
                   speed = 2.23694 * distance / UnitsPerMeter # averages speed over one second of video time (FramesToAverage set to fps) 
                   cv2.putText(frame, "MPH: {:.0f}".format(speed),(int(bbox[0]), int(bbox[3]-10)),0, 0.75, (255,255,255),2)
 
-        # scaleX = int(5 *width / 9) + 80
-        # scaleY = int(8 * height / 9)
-        # cv2.line(frame,(scaleX, scaleY), (int(scaleX+UnitsPerMeter*20), int(scaleY)), (255,0,0), 2)
+        #scaleX = int(5 *width / 9) + 80
+        #scaleY = int(7 * height / 9)
+        #cv2.line(frame,(scaleX, scaleY), (int(scaleX), int(scaleY-UnitsPerMeter)), (255,0,0), 2)
         
         # calculate frames per second of running detections
         FPS = 1.0 / (time.time() - start_time)
         FPSes.append(FPS)
+        performanceData.append([frame_num, 1.0/FPS, numObjectsInFrame])
         # output the FPS to the video
         cv2.putText(frame, "FPS: {:.2f}".format(FPS), (15,35), cv2.FONT_HERSHEY_COMPLEX,  1, (255,0,0), 2)
 
@@ -273,10 +278,14 @@ def main(_argv):
         if cv2.waitKey(1) & 0xFF == ord('q'): break
     if FLAGS.info:
         np.savetxt(FLAGS.tracking_data_output, 
-        trackingData,
-        delimiter =", ", 
-        fmt ='% s')
+          trackingData,
+          delimiter =", ", 
+          fmt ='% s')
         print("Average FPS: " + str(np.mean(FPSes)))
+        np.savetxt(FLAGS.performance_data_output, 
+          performanceData,
+          delimiter =", ", 
+          fmt ='% s')
     cv2.destroyAllWindows()
 
 def dist(pt1, pt2):
